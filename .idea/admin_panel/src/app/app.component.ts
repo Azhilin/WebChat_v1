@@ -7,28 +7,42 @@ import {HttpService} from './httpservice';
 
 @Component({
   selector: 'my-app',
-  template: `<ul><li *ngFor="let user of users">{{user.name}} <input type="button" value="{{user.rel}}"/></li></ul>`,
- providers: [HttpService]
+  template: `<ul><li *ngFor="let user of users">{{user?.login}} <input type="button" value="{{user?.rel}}" (click)="send(user)"/></li></ul>`,
+  providers: [HttpService]
 })
 
 @Injectable()
 export class AppComponent {
     users: User[] = undefined;
-    resp: string = undefined;
+    resp: any[] = undefined;
 
     constructor(private httpservice: HttpService){}
 
     ngOnInit(){
-        this.httpservice.getData().subscribe((data:Response) => this.resp = data.text());
-        console.log("resp : " + this.resp);
-/**        for(let element of this.json){
-            let u = new User();
-            u.login = element.login;
-            u.userId = element.userId;
-            u.rel = element.links.rel
-            u.href = element.links.href;
-            this.users.push(u);
-        }*/
+        this.httpservice.getData().subscribe((data:Response) => {
+            this.users = new Array<User>();
+            this.resp = data.json().users;
+            for(let element of this.resp){
+                let u = new User();
+                u.login = element.login;
+                u.userId = element.userId;
+                u.rel = element.links[0].rel
+                u.href = element.links[0].href;
+                this.users.push(u);
+            }
+        });
+    }
+
+    send(user: User){
+        if(user.rel == "add"){
+            this.httpservice.postData(user).subscribe(() => {
+                this.ngOnInit();
+            });
+        } else {
+            this.httpservice.deleteData(user).subscribe(() => {
+                this.ngOnInit();
+            });
+        }
     }
 
 }
