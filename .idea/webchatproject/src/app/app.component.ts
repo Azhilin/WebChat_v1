@@ -1,9 +1,14 @@
 import {Component}from '@angular/core';
 import {Response}from '@angular/http';
 import {Http, Headers} from '@angular/http';
-import {User}from './user';
 import {Injectable} from '@angular/core';
 import {WebSock} from './websock';
+import {Cookie} from './cookies';
+import * as SockJS from 'sockjs-client';
+//import BaseEvent = __SockJSClient.BaseEvent;
+//import SockJSClass = __SockJSClient.SockJSClass;
+
+var SockJS = require('sockjs-client');
 
 @Component({
   selector: 'my-chat',
@@ -14,7 +19,7 @@ import {WebSock} from './websock';
         <td>
             <form>
                 <textarea>{{messages}}</textarea>
-                <input type="text" [userMessage] = "uMessage"/>
+                <input type="text" [textContent] = "uMessage"/>
                 <input type="button" value="send" (click)="send()"/>
                 <input type="button" value="broadcast" (click)="broadcast()"/>
                 <input type="button" value="logout" (click)="disconnect()"/>
@@ -32,7 +37,8 @@ import {WebSock} from './websock';
         </tr>
     </table>
 
-  `
+  `,
+providers: [WebSock]
 })
 
 @Injectable()
@@ -41,18 +47,25 @@ export class AppComponent {
     items: string[] = undefined;
     messages: string = undefined;
     uMessage: string = undefined;
+    sockJS: SockJS = new SockJS('/sock');
 
-    constructor(private websock: WebSock){}
+    constructor(private websock: WebSock){
+        console.log("AppComponent constructor!!! this.websock:" + (this.websock == undefined));
+    }
 
     ngOnInit(){
-        websock.getSocket().onmessage = this.onMessageHandler;
-        websock.getSocket().onerror = this.onErrorHandler;
-        websock.getSocket().onopen = this.onOpenHandler;
-        websock.getSocket().onclose = this.onCloseHandler;
+        console.log("ngOnInit method!!! this.websock: " + (this.websock == undefined));
+        this.sockJS.onmessage = this.onMessageHandler;
+        this.sockJS.onerror = this.onErrorHandler;
+        this.sockJS.onopen = this.onOpenHandler;
+        this.sockJS.onclose = this.onCloseHandler;
     }
 
     onOpenHandler(){
-        this.registerUser();
+        let sessionId = Cookie.getCookie("JSESSIONID");
+        let jsonMessage = {};
+        jsonMessage["sessionId"] = sessionId;
+        this.sockJS.send(JSON.stringify(jsonMessage));
         this.flag = setInterval( () => {this.sendList},2000);
     }
 
@@ -99,39 +112,33 @@ export class AppComponent {
         jsonMessage["name"] = mesArray[0];
         jsonMessage["message"] = mesArray[1];
 
-        websock.getSocket().send(JSON.stringify(jsonMessage));
+        this.sockJS.send(JSON.stringify(jsonMessage));
     }
 
     disconnect() {
         let jsonMessage = {};
         jsonMessage["disconnect"] = "";
-        websock.getSocket().send(JSON.stringify(jsonMessage));
+        this.sockJS.send(JSON.stringify(jsonMessage));
     }
 
     sendList(){
         let jsonMessage = {};
         jsonMessage["list"] = "";
-        websock.getSocket().send(JSON.stringify(jsonMessage));
+        this.sockJS.send(JSON.stringify(jsonMessage));
     }
 
-    registrateUser(){
-        let sessionId = getCookie("JSESSIONID");
+/**    registrateUser(){
+        console.log("This is registrateUser method!!!");
+        let sessionId = this.getCookie("JSESSIONID");
         let jsonMessage = {};
         jsonMessage["sessionId"] = sessionId;
-        websock.getSocket().send(JSON.stringify(jsonMessage));
-    }
-
-    getCookie(name) {
-        let matches = document.cookie.match(new RegExp(
-           "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g,
-                   '\\$1') + "=([^;]*)"));
-        return matches ? decodeURIComponent(matches[1]) : undefined;
-    }
+        this.sockJS.send(JSON.stringify(jsonMessage));
+    }*/
 
     broadcast() {
         let mes = this.uMessage;;
         let jsonMessage = {};
         jsonMessage["broadcast"] = mes;
-        websock.getSocket().send(JSON.stringify(jsonMessage));
+        this.sockJS.send(JSON.stringify(jsonMessage));
     }
 }
